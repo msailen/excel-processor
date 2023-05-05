@@ -16,7 +16,28 @@ const ODD_WORKSHEETS = [
   },
 ];
 
-const fetchDataFromSheet = (sheet, worksheet, fileName) => {
+const trimArrayOfObjects = (data) => {
+  return data?.map((d) => {
+    return Object.keys(d).reduce((acc, key) => {
+      acc[key.trim()] = d[key];
+      return acc;
+    }, {});
+  });
+};
+
+const sanitizeData = (data) => {
+  if (data?.length) {
+    return trimArrayOfObjects(data);
+  }
+  if (data?.columnData) {
+    const columnData = trimArrayOfObjects(data.columnData);
+    const rowData = trimArrayOfObjects(data.rowData);
+    return { columnData, rowData };
+  }
+  return data;
+};
+
+const fetchDataFromSheet = ({ sheet, worksheet, fileName, path }) => {
   const { status, options } = checkIfOddWorkSheet(sheet);
   let data = [];
   if (status) {
@@ -28,7 +49,7 @@ const fetchDataFromSheet = (sheet, worksheet, fileName) => {
       header: options.header,
       range: options.inverse,
     };
-    const columnData = XLXS.utils
+    let columnData = XLXS.utils
       .sheet_to_json(worksheet, colOptions)
       .reduce((accumulator, current) => {
         accumulator[current.key] = current.value;
@@ -36,24 +57,34 @@ const fetchDataFromSheet = (sheet, worksheet, fileName) => {
       }, {});
 
     const rowData = XLXS.utils.sheet_to_json(worksheet, rowOptions);
-    data = { columnData, rowData };
+    data = { columnData: [columnData], rowData };
   } else {
     data = XLXS.utils.sheet_to_json(worksheet);
   }
+  data = sanitizeData(data);
   var json = JSON.stringify(data, null, 4);
-  fs.writeFile(`output/${fileName}_${sheet}.json`, json, function (err) {
-    if (err) console.log(err);
-    console.log(`Successfully created ${fileName}_${sheet}.json`);
+  fs.writeFile(`json/${fileName}_${sheet}.json`, json, function (err) {
+    if (err) {
+      console.log(err);
+      return;
+    }
+    fs.unlink(path, (err) => {
+      if (err) {
+        console.error(err);
+      } else {
+        console.log("File deleted successfully");
+      }
+    });
   });
 };
 
-const processBuffer = ({ country, year, buffer }) => {
+const processFile = ({ country, year, path }) => {
   const fileName = `${country}_${year}`;
-  const workbook = XLXS.read(buffer);
+  const workbook = XLXS.readFile(path);
   const sheetNames = workbook.SheetNames;
   sheetNames.map(async (sheet) => {
     const worksheet = workbook.Sheets[sheet];
-    fetchDataFromSheet(sheet, worksheet, fileName);
+    fetchDataFromSheet({ sheet, worksheet, fileName, path });
   });
 };
 
@@ -63,4 +94,4 @@ const checkIfOddWorkSheet = (sheet) => {
   return { status: false };
 };
 
-module.exports = { processBuffer };
+module.exports = { processFile };

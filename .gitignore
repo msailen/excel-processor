@@ -130,4 +130,6 @@ dist
 .pnp.*
 
 
-output/
+json/
+mapping/
+intermediate/
