@@ -2,8 +2,8 @@ var express = require("express");
 var router = express.Router();
 const multer = require("multer");
 const fs = require("fs");
-const { parseCountryAndYear } = require("../utils");
 const { addExcelToQueue } = require("../utils/queue");
+const { exportData } = require("../modules/export");
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "intermediate/");
@@ -37,6 +37,18 @@ router.post("/add-to-queue", function (req, res, next) {
       addExcelToQueue({ path: filePath, file });
     });
     res.json({ message: "Files Added To Queue" });
+  });
+});
+
+router.post("/export", function (req, res, next) {
+  fs.readdir("json", async (err, files) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
+    // Process each Excel file
+    exportData(files);
+    res.json({ message: "Files Exported" });
   });
 });
 
