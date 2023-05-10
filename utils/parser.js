@@ -41,6 +41,7 @@ const fetchDataFromSheet = ({ sheet, worksheet, fileName, path }) => {
   const { status, options } = checkIfOddWorkSheet(sheet);
   let data = [];
   if (status) {
+    console.log(worksheet);
     const rowOptions = {
       range: options?.range,
       headers: 1,
@@ -64,17 +65,9 @@ const fetchDataFromSheet = ({ sheet, worksheet, fileName, path }) => {
   data = sanitizeData(data);
   var json = JSON.stringify(data, null, 4);
   fs.writeFile(`json/${fileName}_${sheet}.json`, json, function (err) {
-    if (err) {
-      console.log(err);
-      return;
+    if (!err) {
+      console.log("Output Created Successfully");
     }
-    fs.unlink(path, (err) => {
-      if (err) {
-        console.error(err);
-      } else {
-        console.log("File deleted successfully");
-      }
-    });
   });
 };
 
@@ -85,6 +78,13 @@ const processFile = ({ country, year, path }) => {
   sheetNames.map(async (sheet) => {
     const worksheet = workbook.Sheets[sheet];
     fetchDataFromSheet({ sheet, worksheet, fileName, path });
+  });
+  fs.unlink(path, (err) => {
+    if (err) {
+      console.error(err);
+    } else {
+      console.log("File deleted successfully");
+    }
   });
 };
 
