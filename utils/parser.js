@@ -1,6 +1,8 @@
 const XLXS = require("xlsx");
 const fs = require("fs");
 
+const MAPPING_FOLDER = "mapping";
+
 const ODD_WORKSHEETS = [
   {
     name: "ACDC_Converter",
@@ -37,7 +39,48 @@ const sanitizeData = (data) => {
   return data;
 };
 
-const fetchDataFromSheet = ({ sheet, worksheet, fileName, path }) => {
+const createMapping = (json, output) => {
+  if (!Object.keys(json).length) return;
+  const filePath = `${MAPPING_FOLDER}/${output}.json`;
+  json = JSON.stringify(json, null, 4);
+  fs.writeFile(filePath, json, function (err) {
+    if (!err) {
+      console.log("Mapping Saved Successfully");
+    }
+  });
+};
+
+const simplifyHeader = (header) => {
+  return header.replace(/[^\w\s]/g, "").replace(/\s+/g, "_");
+};
+
+const sanitizeMappingData = (data) => {
+  let mappingData = {};
+  if (data?.length) {
+    const keys = Object.keys(data[0]);
+    keys.map((key) => {
+      const formattedKey = simplifyHeader(key);
+      mappingData[`${formattedKey}`] = key;
+    });
+  }
+  if (data?.columnData) {
+    const columnData = data?.columnData;
+    const rowData = data?.rowData;
+    const columnKeys = Object.keys(columnData[0]);
+    const rowKeys = Object.keys(rowData[0]);
+    columnKeys.map((key) => {
+      const formattedKey = simplifyHeader(key);
+      mappingData[`${formattedKey}`] = key;
+    });
+    rowKeys.map((key) => {
+      const formattedKey = simplifyHeader(key);
+      mappingData[`${formattedKey}`] = key;
+    });
+  }
+  return mappingData;
+};
+
+const fetchDataFromSheet = ({ sheet, worksheet, fileName }) => {
   const { status, options } = checkIfOddWorkSheet(sheet);
   let data = [];
   if (status) {
@@ -63,21 +106,26 @@ const fetchDataFromSheet = ({ sheet, worksheet, fileName, path }) => {
   }
   data = sanitizeData(data);
   var json = JSON.stringify(data, null, 4);
-  fs.writeFile(`json/${fileName}_${sheet}.json`, json, function (err) {
-    if (!err) {
-      console.log("Output Created Successfully");
-    }
-  });
+  fs.writeFileSync(`json/${fileName}_${sheet}.json`, json);
+  return data;
 };
 
-const processFile = ({ country, year, path }) => {
+const processFile = async ({ country, year, path }) => {
+  const firstPart = path.split("/")[1].split("_")[0];
   const fileName = `${country}_${year}`;
   const workbook = XLXS.readFile(path);
   const sheetNames = workbook.SheetNames;
-  sheetNames.map(async (sheet) => {
+  let finalData = sheetNames.map(async (sheet) => {
     const worksheet = workbook.Sheets[sheet];
-    fetchDataFromSheet({ sheet, worksheet, fileName, path });
+    return fetchDataFromSheet({ sheet, worksheet, fileName });
   });
+  finalData = await Promise.all(finalData);
+  const finalMappingData = {};
+  finalData.map((data) => {
+    const mappingData = sanitizeMappingData(data);
+    Object.assign(finalMappingData, mappingData);
+  });
+  createMapping(finalMappingData, firstPart);
   fs.unlink(path, (err) => {
     if (err) {
       console.error(err);
