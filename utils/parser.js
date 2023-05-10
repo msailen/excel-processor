@@ -41,7 +41,6 @@ const fetchDataFromSheet = ({ sheet, worksheet, fileName, path }) => {
   const { status, options } = checkIfOddWorkSheet(sheet);
   let data = [];
   if (status) {
-    console.log(worksheet);
     const rowOptions = {
       range: options?.range,
       headers: 1,

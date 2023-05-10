@@ -5,6 +5,16 @@ const fs = require("fs");
 
 const catalogData = ["Lines", "Substations"];
 
+const catalogSortOrder = ["Lines", "Substations"];
+const genCatalogSortOrder = [
+  "Solar",
+  "BESS",
+  "Genset",
+  "ACDC_Converter",
+  "Charge_Controller",
+  "Other",
+];
+
 const getFileType = (filename) => {
   filename = filename.replace(".json", "").split("_");
   return filename.slice(2).join("_");
@@ -12,6 +22,15 @@ const getFileType = (filename) => {
 
 const generateExcel = (fileNames, name) => {
   const workbook = XLSX.utils.book_new();
+  const sortOrder = [...catalogSortOrder, ...genCatalogSortOrder];
+  //Sort the filenames based on worksheet order
+  fileNames.sort((a, b) => {
+    const name1 = getFileType(a);
+    const name2 = getFileType(b);
+    return sortOrder.indexOf(name1) - sortOrder.indexOf(name2);
+  });
+
+  //For each file append create worksheet and append to workbook
   fileNames.map(async (filename) => {
     const fileType = getFileType(filename);
     const filePath = `${JSON_FOLDER}/${filename}`;
@@ -62,7 +81,10 @@ const generateExcel = (fileNames, name) => {
       XLSX.utils.book_append_sheet(workbook, newWorkSheet, fileType);
     }
   });
+  //Create a Excel File
   XLSX.writeFile(workbook, `${EXPORT_FOLDER}/${name}.xlsx`);
+
+  //Delete File from Json Folder
   fileNames.map(async (filename) => {
     const filePath = `${JSON_FOLDER}/${filename}`;
     fs.unlink(filePath, (err) => {
